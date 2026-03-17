@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APOTHEOSIS // CIVIL DEFENSE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* The Chromatic Layer */
+        #chromatic-field {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%,
+                rgba(0, 119, 190, 0.1) 0%,
+                rgba(0, 0, 0, 0.9) 100%);
+            transition: all 0.3s ease;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #chromatic-field.threat {
+            background: radial-gradient(circle at 70% 30%,
+                rgba(255, 140, 0, 0.4) 0%,
+                rgba(139, 0, 0, 0.2) 50%,
+                rgba(0, 0, 0, 0.95) 100%);
+        }
+
+        #chromatic-field.impact {
+            background: radial-gradient(circle at 50% 50%,
+                #000 0%,
+                #1a0000 100%);
+        }
+
+        /* Canvas for AR/Spatial */
+        #ar-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            opacity: 0.8;
+        }
+
+        /* The HUD Layer */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* MOTHERSIGHT: Three Concentric Rings */
+        .ring-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+        }
+
+        .ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s;
+        }
+
+        .ring-outer {
+            width: 600px;
+            height: 600px;
+            border-color: rgba(255, 140, 0, 0.3);
+            animation: pulse-ring 1s infinite;
+        }
+
+        .ring-middle {
+            width: 400px;
+            height: 400px;
+            border-color: rgba(0, 119, 190, 0.5);
+            border-style: dashed;
+        }
+
+        .ring-inner {
+            width: 200px;
+            height: 200px;
+            border: 3px solid rgba(255, 50, 50, 0.6);
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+            50% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.6; }
+        }
+
+        /* The Countdown (Final Seconds Mode) */
+        #countdown-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 180px;
+            font-weight: 100;
+            letter-spacing: -10px;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 0 30px rgba(255, 140, 0, 0.8);
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: 'Arial', sans-serif;
+        }
+
+        #countdown-display.active {
+            opacity: 1;
+            animation: breathe 4s infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+            50% { transform: translate(-50%, -50%) scale(1.02); opacity: 1; }
+        }
+
+        /* Data Readouts */
+        .data-panel {
+            position: absolute;
+            font-size: 14px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0.7;
+        }
+
+        .data-top-left {
+            top: 40px;
+            left: 40px;
+        }
+
+        .data-top-right {
+            top: 40px;
+            right: 40px;
+            text-align: right;
+        }
+
+        .data-bottom {
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 80%;
+        }
+
+        .label {
+            color: #666;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .value {
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .value.threat { color: #ff8c00; }
+        .value.safe { color: #0077be; }
+        .value.critical { color: #ff0000; animation: blink 0.5s infinite; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Shelter Navigation */
+        #shelter-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 40px solid #0077be;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            filter: drop-shadow(0 0 10px #0077be);
+            z-index: 15;
+        }
+
+        #shelter-arrow.visible {
+            opacity: 0.9;
+            animation: guide-pulse 1.5s infinite;
+        }
+
+        @keyframes guide-pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+
+        /* Status Bar */
+        #status-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: #333;
+            z-index: 30;
+        }
+
+        #status-progress {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #0077be, #ff8c00);
+            transition: width 0.1s linear;
+        }
+
+        /* The Breathing Indicator (Pre-alert) */
+        #breathing-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 140, 0, 0.2) 0%, transparent 70%);
+            opacity: 0;
+            z-index: 5;
+            animation: breathe-circle 4s infinite;
+        }
+
+        @keyframes breathe-circle {
+            0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.2; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.4; }
+        }
+
+        /* Instructions */
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 12px;
+            color: #444;
+            z-index: 50;
+        }
+
+        /* All Clear State */
+        #all-clear {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #001a1a 0%, #000 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 2s;
+        }
+
+        #all-clear.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .clear-text {
+            font-size: 48px;
+            color: #0077be;
+            letter-spacing: 20px;
+            margin-bottom: 20px;
+        }
+
+        .clear-sub {
+            font-size: 14px;
+            color: #666;
+            letter-spacing: 2px;
+        }
+
+        /* Scanlines */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.2) 50%,
+                rgba(0,0,0,0.2)
+            );
+            background-size: 100% 4px;
+            z-index: 25;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Audio Context for Sub-bass (40Hz) -->
+    <div id="audio-trigger" style="display:none;"></div>
+
+    <!-- Visual Layers -->
+    <div id="chromatic-field"></div>
+    <div id="breathing-indicator"></div>
+
+    <!-- AR Canvas -->
+    <canvas id="ar-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+        <div class="scanlines"></div>
+
+        <!-- Status Bar -->
+        <div id="status-bar">
+            <div id="status-progress"></div>
+        </div>
+
+        <!-- Data Panels -->
+        <div class="data-panel data-top-left">
+            <div class="label">Threat Vector</div>
+            <div class="value threat" id="threat-vector">N/A</div>
+            <div style="margin-top: 20px;">
+                <div class="label">Distance</div>
+                <div class="value" id="distance">-- km</div>
+            </div>
+        </div>
+
+        <div class="data-panel data-top-right">
+            <div class="label">Time to Impact</div>
+            <div class="value critical" id="tti">--:--</div>
+            <div style="margin-top: 20px;">
+                <div class="label">Shelter ETA</div>
+                <div class="value safe" id="shelter-eta">--:--</div>
+            </div>
+        </div>
+
+        <div class="data-panel data-bottom">
+            <div class="label">System Status</div>
+            <div class="value" id="system-status">STANDBY</div>
+        </div>
+
+        <!-- Concentric Rings (MOTHERSIGHT) -->
+        <div class="ring-container" id="rings" style="opacity: 0;">
+            <div class="ring ring-outer"></div>
+            <div class="ring ring-middle"></div>
+            <div class="ring ring-inner"></div>
+        </div>
+
+        <!-- Shelter Direction -->
+        <div id="shelter-arrow"></div>
+
+        <!-- Final Countdown -->
+        <div id="countdown-display">--</div>
+    </div>
+
+    <!-- All Clear Screen -->
+    <div id="all-clear">
+        <div class="clear-text">THREAT PASSED</div>
+        <div class="clear-sub">You made it. Breathe.</div>
+        <div style="margin-top: 40px; font-size: 12px; color: #333;">
+            Press R to reset simulation
+        </div>
+    </div>
+
+    <div id="instructions">
+        [SPACE] Initiate Alert | [MOUSE] Look Around | [R] Reset
+    </div>
+
+    <script>
+        // APOTHEOSIS CORE SYSTEM
+        const canvas = document.getElementById('ar-canvas');
+        const ctx = canvas.getContext('2d');
+        const chromaticField = document.getElementById('chromatic-field');
+        const countdownDisplay = document.getElementById('countdown-display');
+        const rings = document.getElementById('rings');
+        const shelterArrow = document.getElementById('shelter-arrow');
+        const statusProgress = document.getElementById('status-progress');
+        const breathingIndicator = document.getElementById('breathing-indicator');
+
+        // State
+        let state = {
+            phase: 'STANDBY', // STANDBY, PRE_ALERT, ALERT, FINAL, IMPACT, CLEAR
+            timeToImpact: 0,
+            shelterDistance: 450, // meters
+            threatBearing: 240, // degrees
+            userBearing: 0,
+            mouseX: 0,
+            mouseY: 0,
+            audioContext: null,
+            oscillator: null
+        };
+
+        // Resize canvas
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Audio System (40Hz Sub-bass)
+        function initAudio() {
+            if (!state.audioContext) {
+                state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playThreatTone() {
+            if (!state.audioContext) initAudio();
+
+            // Create 40Hz infrasound feel (near sub-bass)
+            const osc = state.audioContext.createOscillator();
+            const gain = state.audioContext.createGain();
+
+            osc.frequency.value = 40;
+            osc.type = 'sine';
+
+            gain.gain.setValueAtTime(0, state.audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(0.5, state.audioContext.currentTime + 2);
+
+            osc.connect(gain);
+            gain.connect(state.audioContext.destination);
+
+            osc.start();
+            state.oscillator = osc;
+            state.gainNode = gain;
+        }
+
+        function stopAudio() {
+            if (state.oscillator) {
+                state.oscillator.stop();
+                state.oscillator = null;
+            }
+        }
+
+        // AR Rendering
+        function drawAR() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (state.phase === 'STANDBY' || state.phase === 'CLEAR') return;
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Calculate relative bearing
+            const relativeBearing = (state.threatBearing - state.userBearing + 360) % 360;
+            const rad = (relativeBearing * Math.PI) / 180;
+
+            // Threat Dome (Red translucent)
+            const threatX = centerX + Math.cos(rad) * 200;
+            const threatY = centerY + Math.sin(rad) * 200;
+
+            // Draw threat dome on horizon
+            const gradient = ctx.createRadialGradient(threatX, threatY, 0, threatX, threatY, 150);
+            gradient.addColorStop(0, 'rgba(255, 50, 50, 0.4)');
+            gradient.addColorStop(0.5, 'rgba(255, 140, 0, 0.2)');
+            gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Safe Corridors (Green paths)
+            if (state.phase === 'ALERT' || state.phase === 'FINAL') {
+                ctx.strokeStyle = 'rgba(0, 119, 190, 0.6)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 10]);
+
+                // Left safe corridor
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX - 300, centerY - 200);
+                ctx.stroke();
+
+                // Right safe corridor
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(centerX + 300, centerY - 200);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+
+                // Shelter marker
+                const shelterAngle = (45 - state.userBearing + 360) % 360;
+                const shelterRad = (shelterAngle * Math.PI) / 180;
+                const shelterX = centerX + Math.cos(shelterRad) * 250;
+                const shelterY = centerY + Math.sin(shelterRad) * 250;
+
+                // Pineal Blue shelter indicator
+                ctx.fillStyle = '#0077be';
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#0077be';
+                ctx.beginPath();
+                ctx.arc(shelterX, shelterY, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Label
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Courier';
+                ctx.fillText('SHELTER', shelterX - 30, shelterY - 15);
+            }
+
+            // Impact zone (Void Black) when close
+            if (state.timeToImpact < 10 && state.phase !== 'CLEAR') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 100 + (10 - state.timeToImpact) * 20, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Update Logic
+        function update() {
+            // Update displays
+            document.getElementById('threat-vector').textContent =
+                state.phase === 'STANDBY' ? 'N/A' : `${Math.floor(state.threatBearing)}° ${getDirection(state.threatBearing)}`;
+
+            document.getElementById('distance').textContent =
+                state.phase === 'STANDBY' ? '-- km' : `${(state.timeToImpact * 0.3).toFixed(1)} km`;
+
+            const minutes = Math.floor(state.timeToImpact / 60);
+            const seconds = Math.floor(state.timeToImpact % 60);
+            document.getElementById('tti').textContent =
+                state.phase === 'STANDBY' ? '--:--' : `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            const shelterMinutes = Math.floor(state.shelterDistance / 120); // 2m/s walking speed
+            const shelterSeconds = Math.floor((state.shelterDistance % 120) / 2);
+            document.getElementById('shelter-eta').textContent =
+                state.phase === 'STANDBY' ? '--:--' : `${shelterMinutes}:${shelterSeconds.toString().padStart(2, '0')}`;
+
+            document.getElementById('system-status').textContent = state.phase;
+
+            // Progress bar
+            if (state.phase !== 'STANDBY' && state.phase !== 'CLEAR') {
+                const progress = (state.timeToImpact / 120) * 100; // Assuming 2 min max
+                statusProgress.style.width = `${progress}%`;
+            } else {
+                statusProgress.style.width = '100%';
+            }
+
+            // Visual states
+            if (state.phase === 'PRE_ALERT') {
+                chromaticField.className = '';
+                breathingIndicator.style.opacity = '0.6';
+                rings.style.opacity = '0.3';
+            } else if (state.phase === 'ALERT') {
+                chromaticField.className = 'threat';
+                breathingIndicator.style.opacity = '0';
+                rings.style.opacity = '1';
+                shelterArrow.classList.add('visible');
+                countdownDisplay.classList.remove('active');
+            } else if (state.phase === 'FINAL') {
+                chromaticField.className = 'threat';
+                rings.style.opacity = '0';
+                shelterArrow.classList.remove('visible');
+                countdownDisplay.classList.add('active');
+                countdownDisplay.textContent = Math.ceil(state.timeToImpact);
+            } else if (state.phase === 'IMPACT') {
+                chromaticField.className = 'impact';
+                countdownDisplay.style.opacity = '0';
+            } else if (state.phase === 'CLEAR') {
+                chromaticField.className = '';
+                document.getElementById('all-clear').classList.add('active');
+                stopAudio();
+            }
+
+            // Rotate shelter arrow based on mouse position (simulating phone orientation)
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const angle = Math.atan2(state.mouseY - centerY, state.mouseX - centerX) * 180 / Math.PI + 90;
+            shelterArrow.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+
+            drawAR();
+            requestAnimationFrame(update);
+        }
+
+        function getDirection(degrees) {
+            const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            return directions[Math.round(degrees / 45) % 8];
+        }
+
+        // Simulation Sequence
+        function initiateAlert() {
+            if (state.phase !== 'STANDBY') return;
+
+            initAudio();
+
+            // Phase 1: Pre-alert (The "Earth Tone")
+            state.phase = 'PRE_ALERT';
+            playThreatTone();
+
+            setTimeout(() => {
+                // Phase 2: Alert
+                state.phase = 'ALERT';
+                state.timeToImpact = 45; // 45 seconds
+
+                const countdown = setInterval(() => {
+                    if (state.timeToImpact > 0) {
+                        state.timeToImpact -= 0.1;
+                        state.shelterDistance -= 1.2; // Walking toward shelter
+
+                        if (state.timeToImpact <= 10 && state.phase !== 'FINAL') {
+                            state.phase = 'FINAL';
+                        }
+                    } else {
+                        clearInterval(countdown);
+                        state.phase = 'IMPACT';
+                        setTimeout(() => {
+                            state.phase = 'CLEAR';
+                        }, 2000);
+                    }
+                }, 100);
+
+            }, 4000); // 4 seconds of pre-alert breathing
+        }
+
+        function reset() {
+            state.phase = 'STANDBY';
+            state.timeToImpact = 0;
+            state.shelterDistance = 450;
+            document.getElementById('all-clear').classList.remove('active');
+            countdownDisplay.classList.remove('active');
+            shelterArrow.classList.remove('visible');
+            chromaticField.className = '';
+            breathingIndicator.style.opacity = '0';
+            rings.style.opacity = '0';
+            stopAudio();
+        }
+
+        // Input handling
+        document.addEventListener('mousemove', (e) => {
+            state.mouseX = e.clientX;
+            state.mouseY = e.clientY;
+
+            // Simulate bearing change based on mouse X position
+            state.userBearing = (e.clientX / window.innerWidth) * 360;
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                initiateAlert();
+            } else if (e.code === 'KeyR') {
+                reset();
+            }
+        });
+
+        // Start loop
+        update();
+
+        // Auto-initiate on first click (for audio context)
+        document.addEventListener('click', () => {
+            if (!state.audioContext) initAudio();
+        }, { once: true });
+
+    </script>
+</body>
+</html>
